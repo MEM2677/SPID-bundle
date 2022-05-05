@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spid-installer-pod
+spec:
+  serviceAccountName: spid-installer-sa
+  containers:
+    - name: installer-single
+      image: jangalian/spid-provider-installer:0.4
