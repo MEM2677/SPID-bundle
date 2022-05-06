@@ -1,38 +1,65 @@
 package it.entando.pa.spid;
 
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.Configuration;
-import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.V1PodList;
-import io.kubernetes.client.util.ClientBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
+import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
 
 public class KubectlOps {
 
-  public static V1PodList listPodsNamespace(String namespace) throws IOException, ApiException {
+  private static final Logger logger = LogManager.getLogger(KubectlOps.class);
 
-    // loading the in-cluster config, including:
-    //   1. service-account CA
-    //   2. service-account bearer-token
-    //   3. service-account namespace
-    //   4. master endpoints(ip, port) from pre-set environment variables
-    ApiClient client = ClientBuilder.cluster().build();
-
-    // if you prefer not to refresh service account token, please use:
-    // ApiClient client = ClientBuilder.oldCluster().build();
-
-    // set the global default api-client to the in-cluster one from above
-    Configuration.setDefaultApiClient(client);
-
-    // the CoreV1Api loads default api-client from global configuration.
-    CoreV1Api api = new CoreV1Api();
-
-    // invokes the CoreV1Api client
-    V1PodList list =
-       api.listNamespacedPod(namespace, null, null, null, null, null, null, null, null, null, null);
-    return list;
+  public static List<Pod> getPodsInNamespace(String namespace) {
+    try {
+      KubernetesClient client = new DefaultKubernetesClient();
+      List<Pod> pods = client.pods().inNamespace(namespace).list().getItems();
+//      pods.forEach(p -> logger.info(">>>" + p.getMetadata().getName()));
+      return pods;
+    } catch (Throwable t) {
+      logger.error("Errore in getPods() ", t.getMessage());
+    }
+    return null;
   }
 
+  public static boolean checkFileExists(String namespace, String podName, String src, String dst) {
+    boolean fileExists = false;
+
+    try(KubernetesClient client = new DefaultKubernetesClient()) {
+      File dstFile = new File(dst);
+      Path dstPath = dstFile.toPath();
+      client.pods()
+        .inNamespace(namespace)
+        .withName(podName)
+        .file(src)
+        .copy(dstPath);
+//      logger.debug("Exists: {} length: {}", dstFile.exists(), (dstFile.length() > 0));
+      fileExists = dstFile.exists() && dstFile.length() > 0;
+    } catch (Throwable t) {
+      logger.error("Error in checkFileExists", t);
+    }
+    return fileExists;
+  }
+
+  public static void copyFile(String namespace, String podName, String src, String dst) {
+    try(KubernetesClient client = new DefaultKubernetesClient()) {
+      File uploadFile = new File(src);
+
+      if (uploadFile.exists()) {
+        client.pods()
+          .inNamespace(namespace)
+          .withName(podName)
+          .file(dst)
+          .upload(uploadFile.toPath());
+      } else {
+        logger.warn("src file {} to upload missing", src);
+      }
+    } catch (Throwable t) {
+      logger.error("Error in copyFile", t);
+    }
+  }
 }
