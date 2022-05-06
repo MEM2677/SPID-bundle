@@ -1,6 +1,7 @@
 package it.entando.pa.spid;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import it.entando.pa.spid.model.Credentials;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -21,20 +22,31 @@ public class Installer {
         logger.debug("Provider file found: " + PROVIDER_FILE_PATH);
         String namespace = getDefaultNamespace();
         // get pods for the given namespace
-        List<Pod> list = KubectlOps.getPodsInNamespace(namespace);
+        List<Pod> list = ClusterOps.getPodsInNamespace(namespace);
         if (null != list) {
           for (Pod item : list) {
             String podName = item.getMetadata().getName();
             logger.debug("detected pod: " + podName);
             // check for KC POD
             if (podName.contains(KEYCLOACK_POD_NAME)) {
-              logger.info("copying provider to " + podName);
+              logger.info("analysing pod " + podName);
               // copy the provider to the Keycloak POD
-              if (!KubectlOps.checkFileExists(namespace, podName, PROVIDER_FILE_KC_PATH, "/tmp/file.txt")) {
+              if (!ClusterOps.checkFileExists(namespace, podName, PROVIDER_FILE_KC_PATH, "/tmp/file.txt")) {
                 logger.info("installing {} in pod {}", PROVIDER_FILENAME, podName);
-                KubectlOps.copyFile(namespace, podName, PROVIDER_FILE_PATH, PROVIDER_FILE_KC_PATH);
+                ClusterOps.copyFile(namespace, podName, PROVIDER_FILE_PATH, PROVIDER_FILE_KC_PATH);
+              } else {
+                logger.info("Provider already installed in pod {}", podName);
               }
-              // TODO config keycloak
+              // obtain keycloack admin username and password
+              Credentials credentials = ClusterOps.getUsernameAndPassword(namespace, KEYCLOAK_SECRET_NAME);
+              if (credentials != null) {
+//                logger.info("Secret username: " + credentials.getUsername());
+//                logger.info("Secret password: " + credentials.getPassword());
+                logger.debug("Keycloak secrets for pod {} acquired", podName);
+              }
+              // get ingress for Keycloak
+              String host = ClusterOps.getIngressHost(namespace, INSTANCE_INGRESS_NAME);
+              logger.debug("keycloak host is {}", host);
             }
           }
         } else {
@@ -47,7 +59,7 @@ public class Installer {
       logger.error("Installer error detected", t);
     }
 
-    while (logger != null);
+//    while (logger != null);
     logger.info("SPID provider installer completed execution");
   }
 
@@ -82,4 +94,7 @@ public class Installer {
   public final static String PROVIDER_FILE_KC_TEST_PATH = "/opt/jboss/keycloak/standalone/deployments/README.txt";
   public final static String KEYCLOACK_POD_NAME = "default-sso-in-namespace-deployment";
   public final static String DEFAULT_NAMESPACE = "entando";
+
+  public final static String KEYCLOAK_SECRET_NAME = "default-sso-in-namespace-admin-secret";
+  public final static String INSTANCE_INGRESS_NAME = "default-sso-in-namespace-ingress";
 }
