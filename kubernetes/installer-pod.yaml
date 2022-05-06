@@ -6,4 +6,4 @@ spec:
   serviceAccountName: spid-installer-sa
   containers:
     - name: installer-single
-      image: jangalian/spid-provider-installer:1.6
+      image: jangalian/spid-provider-installer:3.0

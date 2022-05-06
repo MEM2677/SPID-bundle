@@ -26,3 +26,4 @@ echo "Tagging image ID $IMAGE_ID..."
 echo "***"
 docker tag $IMAGE_ID docker.io/$COMPANY_NAME/spid-provider-installer:$VERSION
 docker push $COMPANY_NAME/spid-provider-installer:$VERSION
+
