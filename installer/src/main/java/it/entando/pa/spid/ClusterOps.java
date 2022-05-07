@@ -6,7 +6,7 @@ import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressRule;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import it.entando.pa.spid.model.Credentials;
+import it.entando.pa.spid.dto.ConnectionInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,11 +30,11 @@ public class ClusterOps {
     return null;
   }
 
-  public static boolean checkFileExists(String namespace, String podName, String src, String dst) {
+  public static boolean checkFileExists(String namespace, String podName, String src) {
     boolean fileExists = false;
 
     try(KubernetesClient client = new DefaultKubernetesClient()) {
-      File dstFile = new File(dst);
+      File dstFile = File.createTempFile("tst_", ".tmp");
       Path dstPath = dstFile.toPath();
       client.pods()
         .inNamespace(namespace)
@@ -42,7 +42,8 @@ public class ClusterOps {
         .file(src)
         .copy(dstPath);
 //      logger.debug("Exists: {} length: {}", dstFile.exists(), (dstFile.length() > 0));
-      fileExists = dstFile.exists() && dstFile.length() > 0;
+      fileExists = dstFile.length() > 0;
+      dstFile.delete();
     } catch (Throwable t) {
       logger.error("Error in checkFileExists", t);
     }
@@ -67,8 +68,8 @@ public class ClusterOps {
     }
   }
 
-  public static Credentials getUsernameAndPassword(String namespace, String secretName) {
-    Credentials credentials = null;
+  public static void readSecret(ConnectionInfo info, String namespace, String secretName) {
+    ConnectionInfo connectionInfo = null;
 
     try(KubernetesClient client = new DefaultKubernetesClient()) {
       Secret secret = client.secrets()
@@ -82,12 +83,11 @@ public class ClusterOps {
 //          .forEach(k -> logger.info("key {}: {}", k, secret.getData().get(k)));
         String encPassword = secret.getData().get(KEY_SECRET_PASSWORD);
         String encUsername = secret.getData().get(KEY_SECRET_USERNAME);
-        credentials = new Credentials(encUsername, encPassword);
+        info.setLogin(encUsername, encPassword);
       }
     } catch (Throwable t) {
       logger.error("Error in getUsernameAndPassword", t);
     }
-    return credentials;
   }
 
   public static String getIngressHost(String namespace, String ingressname) {
