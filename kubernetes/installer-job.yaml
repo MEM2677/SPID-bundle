@@ -8,6 +8,6 @@ spec:
       serviceAccountName: spid-installer-sa
       containers:
         - name: installer-single
-          image: jangalian/spid-provider-installer:3.5
+          image: jangalian/spid-provider-installer:3.6
       restartPolicy: Never
   backoffLimit: 4
